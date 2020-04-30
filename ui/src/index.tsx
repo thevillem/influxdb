@@ -93,6 +93,7 @@ import EditRuleOverlay from 'src/notifications/rules/components/EditRuleOverlay'
 import NewEndpointOverlay from 'src/notifications/endpoints/components/NewEndpointOverlay'
 import EditEndpointOverlay from 'src/notifications/endpoints/components/EditEndpointOverlay'
 import NoOrgsPage from 'src/organizations/containers/NoOrgsPage'
+import UsagePage from 'src/usage/components/UsagePage'
 
 // Overlays
 import OverlayHandler, {
@@ -203,6 +204,7 @@ class Root extends PureComponent {
                 <Route component={GetMe}>
                   <Route component={GetOrganizations}>
                     <Route path="/">
+                      <Route path="usage" component={UsagePage} />
                       <Route path="no-orgs" component={NoOrgsPage} />
                       <IndexRoute component={RouteToOrg} />
                       <Route path="orgs" component={App}>
