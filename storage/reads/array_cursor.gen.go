@@ -228,6 +228,34 @@ func (c *integerFloatCountArrayCursor) Next() *cursors.IntegerArray {
 	}
 }
 
+type integerFloatWindowCountArrayCursor struct {
+	cursors.FloatArrayCursor
+}
+
+func (c *integerFloatWindowCountArrayCursor) Stats() cursors.CursorStats {
+	return c.FloatArrayCursor.Stats()
+}
+
+func (c *integerFloatWindowCountArrayCursor) Next() *cursors.IntegerArray {
+	a := c.FloatArrayCursor.Next()
+	if len(a.Timestamps) == 0 {
+		return &cursors.IntegerArray{}
+	}
+
+	ts := a.Timestamps[0]
+	var acc int64
+	for {
+		acc += int64(len(a.Timestamps))
+		a = c.FloatArrayCursor.Next()
+		if len(a.Timestamps) == 0 {
+			res := cursors.NewIntegerArrayLen(1)
+			res.Timestamps[0] = ts
+			res.Values[0] = acc
+			return res
+		}
+	}
+}
+
 type floatEmptyArrayCursor struct {
 	res cursors.FloatArray
 }
@@ -429,6 +457,34 @@ func (c *integerIntegerCountArrayCursor) Stats() cursors.CursorStats {
 }
 
 func (c *integerIntegerCountArrayCursor) Next() *cursors.IntegerArray {
+	a := c.IntegerArrayCursor.Next()
+	if len(a.Timestamps) == 0 {
+		return &cursors.IntegerArray{}
+	}
+
+	ts := a.Timestamps[0]
+	var acc int64
+	for {
+		acc += int64(len(a.Timestamps))
+		a = c.IntegerArrayCursor.Next()
+		if len(a.Timestamps) == 0 {
+			res := cursors.NewIntegerArrayLen(1)
+			res.Timestamps[0] = ts
+			res.Values[0] = acc
+			return res
+		}
+	}
+}
+
+type integerIntegerWindowCountArrayCursor struct {
+	cursors.IntegerArrayCursor
+}
+
+func (c *integerIntegerWindowCountArrayCursor) Stats() cursors.CursorStats {
+	return c.IntegerArrayCursor.Stats()
+}
+
+func (c *integerIntegerWindowCountArrayCursor) Next() *cursors.IntegerArray {
 	a := c.IntegerArrayCursor.Next()
 	if len(a.Timestamps) == 0 {
 		return &cursors.IntegerArray{}
@@ -668,6 +724,34 @@ func (c *integerUnsignedCountArrayCursor) Next() *cursors.IntegerArray {
 	}
 }
 
+type integerUnsignedWindowCountArrayCursor struct {
+	cursors.UnsignedArrayCursor
+}
+
+func (c *integerUnsignedWindowCountArrayCursor) Stats() cursors.CursorStats {
+	return c.UnsignedArrayCursor.Stats()
+}
+
+func (c *integerUnsignedWindowCountArrayCursor) Next() *cursors.IntegerArray {
+	a := c.UnsignedArrayCursor.Next()
+	if len(a.Timestamps) == 0 {
+		return &cursors.IntegerArray{}
+	}
+
+	ts := a.Timestamps[0]
+	var acc int64
+	for {
+		acc += int64(len(a.Timestamps))
+		a = c.UnsignedArrayCursor.Next()
+		if len(a.Timestamps) == 0 {
+			res := cursors.NewIntegerArrayLen(1)
+			res.Timestamps[0] = ts
+			res.Values[0] = acc
+			return res
+		}
+	}
+}
+
 type unsignedEmptyArrayCursor struct {
 	res cursors.UnsignedArray
 }
@@ -848,6 +932,34 @@ func (c *integerStringCountArrayCursor) Next() *cursors.IntegerArray {
 	}
 }
 
+type integerStringWindowCountArrayCursor struct {
+	cursors.StringArrayCursor
+}
+
+func (c *integerStringWindowCountArrayCursor) Stats() cursors.CursorStats {
+	return c.StringArrayCursor.Stats()
+}
+
+func (c *integerStringWindowCountArrayCursor) Next() *cursors.IntegerArray {
+	a := c.StringArrayCursor.Next()
+	if len(a.Timestamps) == 0 {
+		return &cursors.IntegerArray{}
+	}
+
+	ts := a.Timestamps[0]
+	var acc int64
+	for {
+		acc += int64(len(a.Timestamps))
+		a = c.StringArrayCursor.Next()
+		if len(a.Timestamps) == 0 {
+			res := cursors.NewIntegerArrayLen(1)
+			res.Timestamps[0] = ts
+			res.Values[0] = acc
+			return res
+		}
+	}
+}
+
 type stringEmptyArrayCursor struct {
 	res cursors.StringArray
 }
@@ -1009,6 +1121,34 @@ func (c *integerBooleanCountArrayCursor) Stats() cursors.CursorStats {
 }
 
 func (c *integerBooleanCountArrayCursor) Next() *cursors.IntegerArray {
+	a := c.BooleanArrayCursor.Next()
+	if len(a.Timestamps) == 0 {
+		return &cursors.IntegerArray{}
+	}
+
+	ts := a.Timestamps[0]
+	var acc int64
+	for {
+		acc += int64(len(a.Timestamps))
+		a = c.BooleanArrayCursor.Next()
+		if len(a.Timestamps) == 0 {
+			res := cursors.NewIntegerArrayLen(1)
+			res.Timestamps[0] = ts
+			res.Values[0] = acc
+			return res
+		}
+	}
+}
+
+type integerBooleanWindowCountArrayCursor struct {
+	cursors.BooleanArrayCursor
+}
+
+func (c *integerBooleanWindowCountArrayCursor) Stats() cursors.CursorStats {
+	return c.BooleanArrayCursor.Stats()
+}
+
+func (c *integerBooleanWindowCountArrayCursor) Next() *cursors.IntegerArray {
 	a := c.BooleanArrayCursor.Next()
 	if len(a.Timestamps) == 0 {
 		return &cursors.IntegerArray{}

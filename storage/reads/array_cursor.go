@@ -32,6 +32,22 @@ func newAggregateArrayCursor(ctx context.Context, agg *datatypes.Aggregate, curs
 	}
 }
 
+func newWindowAggregateArrayCursor(ctx context.Context, agg *datatypes.Aggregate, cursor cursors.Cursor) cursors.Cursor {
+	if cursor == nil {
+		return nil
+	}
+
+	switch agg.Type {
+	case datatypes.AggregateTypeSum:
+		return newSumArrayCursor(cursor)
+	case datatypes.AggregateTypeCount:
+		return newWindowCountArrayCursor(cursor)
+	default:
+		// TODO(sgc): should be validated higher up
+		panic("invalid aggregate")
+	}
+}
+
 func newSumArrayCursor(cur cursors.Cursor) cursors.Cursor {
 	switch cur := cur.(type) {
 	case cursors.FloatArrayCursor:
@@ -47,6 +63,23 @@ func newSumArrayCursor(cur cursors.Cursor) cursors.Cursor {
 }
 
 func newCountArrayCursor(cur cursors.Cursor) cursors.Cursor {
+	switch cur := cur.(type) {
+	case cursors.FloatArrayCursor:
+		return &integerFloatCountArrayCursor{FloatArrayCursor: cur}
+	case cursors.IntegerArrayCursor:
+		return &integerIntegerCountArrayCursor{IntegerArrayCursor: cur}
+	case cursors.UnsignedArrayCursor:
+		return &integerUnsignedCountArrayCursor{UnsignedArrayCursor: cur}
+	case cursors.StringArrayCursor:
+		return &integerStringCountArrayCursor{StringArrayCursor: cur}
+	case cursors.BooleanArrayCursor:
+		return &integerBooleanCountArrayCursor{BooleanArrayCursor: cur}
+	default:
+		panic(fmt.Sprintf("unreachable: %T", cur))
+	}
+}
+
+func newWindowCountArrayCursor(cur cursors.Cursor) cursors.Cursor {
 	switch cur := cur.(type) {
 	case cursors.FloatArrayCursor:
 		return &integerFloatCountArrayCursor{FloatArrayCursor: cur}
