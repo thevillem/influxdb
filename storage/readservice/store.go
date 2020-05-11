@@ -159,7 +159,25 @@ func (s *store) GetWindowAggregateCapability(ctx context.Context) reads.WindowAg
 }
 
 // WindowAggregate will invoke a ReadWindowAggregateRequest against the Store.
-func (s *store) WindowAggregate(ctx context.Context, req *datatypes.ReadWindowAggregateRequest) (reads.ResultSet, error) {
-	// TODO: https://github.com/influxdata/idpe/issues/6805
-	return nil, errors.New("WindowAggregate is not implemented")
+func (s *store) WindowAggregate(ctx context.Context, req *datatypes.ReadWindowAggregateRequest) (reads.ReadWindowAggregateResultSet, error) {
+	span, ctx := tracing.StartSpanFromContext(ctx)
+	defer span.Finish()
+
+	if req.ReadSource == nil {
+		return nil, tracing.LogError(span, errors.New("missing read source"))
+	}
+
+	source, err := getReadSource(*req.ReadSource)
+	if err != nil {
+		return nil, tracing.LogError(span, err)
+	}
+
+	var cur reads.SeriesCursor
+	if cur, err = reads.NewIndexSeriesCursor(ctx, source.GetOrgID(), source.GetBucketID(), req.Predicate, s.viewer); err != nil {
+		return nil, tracing.LogError(span, err)
+	} else if cur == nil {
+		return nil, nil
+	}
+
+	return reads.NewWindowAggregateResultSet(ctx, req, cur)
 }
