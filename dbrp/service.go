@@ -10,28 +10,54 @@ import (
 )
 
 var (
-	bucket = []byte("dbrpv1")
+	bucket      = []byte("dbrpv1")
+	indexBucket = []byte("dbrpbyorganddbindexv1")
 )
 
 var _ influxdb.DBRPMappingServiceV2 = (*AuthorizedService)(nil)
 
 type Service struct {
-	store     kv.Store
-	bucketSvc influxdb.BucketService
-	IDGen     influxdb.IDGenerator
+	store kv.Store
+	IDGen influxdb.IDGenerator
+
+	bucketSvc        influxdb.BucketService
+	byOrgAndDatabase *kv.Index
+}
+
+func indexForeignKey(dbrp influxdb.DBRPMappingV2) []byte {
+	return composeForeignKey(dbrp.OrganizationID, dbrp.Database)
+}
+
+func composeForeignKey(orgID influxdb.ID, db string) []byte {
+	encID, _ := orgID.Encode()
+	key := make([]byte, len(encID)+len(db))
+	copy(key, encID)
+	copy(key[len(encID):], db)
+	return key
 }
 
 func NewService(ctx context.Context, bucketSvc influxdb.BucketService, st kv.Store) (influxdb.DBRPMappingServiceV2, error) {
 	if err := st.Update(ctx, func(tx kv.Tx) error {
 		_, err := tx.Bucket(bucket)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Bucket(indexBucket)
 		return err
 	}); err != nil {
 		return nil, err
 	}
 	return &Service{
 		store:     st,
-		bucketSvc: bucketSvc,
 		IDGen:     snowflake.NewDefaultIDGenerator(),
+		bucketSvc: bucketSvc,
+		byOrgAndDatabase: kv.NewIndex(kv.NewIndexMapping(bucket, indexBucket, func(v []byte) ([]byte, error) {
+			var dbrp influxdb.DBRPMappingV2
+			if err := json.Unmarshal(v, &dbrp); err != nil {
+				return nil, err
+			}
+			return indexForeignKey(dbrp), nil
+		}), kv.WithIndexReadPathEnabled),
 	}, nil
 }
 
@@ -42,8 +68,7 @@ func (s *Service) FindByID(ctx context.Context, orgID, id influxdb.ID) (*influxd
 		return nil, ErrInvalidDBRPID
 	}
 
-	b := []byte{}
-
+	var b []byte
 	if err := s.store.View(ctx, func(tx kv.Tx) error {
 		bucket, err := tx.Bucket(bucket)
 		if err != nil {
@@ -73,7 +98,28 @@ func (s *Service) FindByID(ctx context.Context, orgID, id influxdb.ID) (*influxd
 // TODO(affo): find a smart way to apply FindOptions to a list of items.
 func (s *Service) FindMany(ctx context.Context, filter influxdb.DBRPMappingFilterV2, opts ...influxdb.FindOptions) ([]*influxdb.DBRPMappingV2, int, error) {
 	dbrps := []*influxdb.DBRPMappingV2{}
-	err := s.store.View(ctx, func(tx kv.Tx) error {
+
+	addDBRP := func(_, v []byte) error {
+		dbrp := &influxdb.DBRPMappingV2{}
+		if err := json.Unmarshal(v, dbrp); err != nil {
+			return ErrInternalService(err)
+		}
+		if filterFunc(dbrp, filter) {
+			dbrps = append(dbrps, dbrp)
+		}
+		return nil
+	}
+
+	if orgID, db := filter.OrgID, filter.Database; orgID != nil && db != nil {
+		if err := s.store.View(ctx, func(tx kv.Tx) error {
+			return s.byOrgAndDatabase.Walk(ctx, tx, composeForeignKey(*orgID, *db), addDBRP)
+		}); err != nil {
+			return nil, 0, err
+		}
+		return dbrps, len(dbrps), nil
+	}
+
+	if err := s.store.View(ctx, func(tx kv.Tx) error {
 		bucket, err := tx.Bucket(bucket)
 		if err != nil {
 			return ErrInternalService(err)
@@ -84,24 +130,70 @@ func (s *Service) FindMany(ctx context.Context, filter influxdb.DBRPMappingFilte
 		}
 
 		for k, v := cur.First(); k != nil; k, v = cur.Next() {
-			dbrp := &influxdb.DBRPMappingV2{}
-			if err := json.Unmarshal(v, dbrp); err != nil {
-				return ErrInternalService(err)
-			}
-			if filterFunc(dbrp, filter) {
-				dbrps = append(dbrps, dbrp)
+			if err := addDBRP(k, v); err != nil {
+				return err
 			}
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, len(dbrps), err
 	}
 	return dbrps, len(dbrps), nil
 }
 
+func (s *Service) ensureOneDefault(ctx context.Context, tx kv.Tx, compKey []byte) error {
+	bucket, err := tx.Bucket(bucket)
+	if err != nil {
+		return ErrInternalService(err)
+	}
+
+	// Make sure the last default takes precedence.
+	var first *influxdb.DBRPMappingV2
+	var lastDefault *influxdb.DBRPMappingV2
+	if err := s.byOrgAndDatabase.Walk(ctx, tx, compKey, func(k, v []byte) error {
+		curr := &influxdb.DBRPMappingV2{}
+		if err := json.Unmarshal(v, curr); err != nil {
+			return ErrInternalService(err)
+		}
+		if first == nil {
+			first = curr
+		}
+		if curr.Default {
+			if lastDefault != nil {
+				lastDefault.Default = false
+				bs, err := json.Marshal(lastDefault)
+				if err != nil {
+					return ErrInternalService(err)
+				}
+				id, _ := lastDefault.ID.Encode()
+				if err := bucket.Put(id, bs); err != nil {
+					return err
+				}
+			}
+			lastDefault = curr
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// This means no default has been found.
+	// Make the first one the default.
+	// If that does not exists, then there is no DBRP.
+	if lastDefault == nil && first != nil {
+		first.Default = true
+		bs, err := json.Marshal(first)
+		if err != nil {
+			return ErrInternalService(err)
+		}
+		id, _ := first.ID.Encode()
+		return bucket.Put(id, bs)
+	}
+	return nil
+}
+
 // Create creates a new dbrp mapping, if a different mapping exists an error is returned.
-// If the mapping already contains a valid ID that is used for storing the mapping.
+// If the mapping already contains a valid ID, that one is used for storing the mapping.
 func (s *Service) Create(ctx context.Context, dbrp *influxdb.DBRPMappingV2) error {
 	if !dbrp.ID.Valid() {
 		dbrp.ID = s.IDGen.ID()
@@ -109,6 +201,26 @@ func (s *Service) Create(ctx context.Context, dbrp *influxdb.DBRPMappingV2) erro
 	if err := dbrp.Validate(); err != nil {
 		return ErrInvalidDBRP(err)
 	}
+
+	if _, err := s.bucketSvc.FindBucketByID(ctx, dbrp.BucketID); err != nil {
+		return err
+	}
+
+	// If a dbrp with this particular ID already exists an error is returned.
+	if _, err := s.FindByID(ctx, dbrp.OrganizationID, dbrp.ID); err == nil {
+		return ErrDBRPAlreadyExists("dbrp already exist for this particular ID. If you are trying an update use the right function .Update")
+	}
+	// If a dbrp with this orgID, db, and rp exists an error is returned.
+	if _, n, err := s.FindMany(ctx, influxdb.DBRPMappingFilterV2{
+		OrgID:           &dbrp.OrganizationID,
+		Database:        &dbrp.Database,
+		RetentionPolicy: &dbrp.RetentionPolicy,
+	}); err != nil {
+		return err
+	} else if n > 0 {
+		return ErrDBRPAlreadyExists("another DBRP mapping with same orgID, db, and rp exists")
+	}
+
 	encodedID, err := dbrp.ID.Encode()
 	if err != nil {
 		return ErrInvalidDBRPID
@@ -118,24 +230,23 @@ func (s *Service) Create(ctx context.Context, dbrp *influxdb.DBRPMappingV2) erro
 		return ErrInternalService(err)
 	}
 
-	if _, err := s.bucketSvc.FindBucketByID(ctx, dbrp.BucketID); err != nil {
-		return err
-	}
-
-	// if a dbrp with this particular ID already exists an error is returned
-	if _, err := s.FindByID(ctx, dbrp.OrganizationID, dbrp.ID); err == nil {
-		return ErrDBRPAlreadyExists(err)
-	}
 	return s.store.Update(ctx, func(tx kv.Tx) error {
 		bucket, err := tx.Bucket(bucket)
 		if err != nil {
 			return ErrInternalService(err)
 		}
-		return bucket.Put(encodedID, b)
+		if err := bucket.Put(encodedID, b); err != nil {
+			return err
+		}
+		compKey := indexForeignKey(*dbrp)
+		if err := s.byOrgAndDatabase.Insert(tx, compKey, encodedID); err != nil {
+			return err
+		}
+		return s.ensureOneDefault(ctx, tx, compKey)
 	})
 }
 
-// Update a dbrp mapping
+// Update a dbrp mapping.
 func (s *Service) Update(ctx context.Context, dbrp *influxdb.DBRPMappingV2) error {
 	if err := dbrp.Validate(); err != nil {
 		return ErrInvalidDBRP(err)
@@ -164,14 +275,18 @@ func (s *Service) Update(ctx context.Context, dbrp *influxdb.DBRPMappingV2) erro
 		if err != nil {
 			return ErrInternalService(err)
 		}
-		return bucket.Put(encodedID, b)
+		if err := bucket.Put(encodedID, b); err != nil {
+			return err
+		}
+		return s.ensureOneDefault(ctx, tx, indexForeignKey(*dbrp))
 	})
 }
 
 // Delete removes a dbrp mapping.
 // Deleting a mapping that does not exists is not an error.
 func (s *Service) Delete(ctx context.Context, orgID, id influxdb.ID) error {
-	if _, err := s.FindByID(ctx, orgID, id); err != nil {
+	dbrp, err := s.FindByID(ctx, orgID, id)
+	if err != nil {
 		return nil
 	}
 	encodedID, err := id.Encode()
@@ -183,7 +298,14 @@ func (s *Service) Delete(ctx context.Context, orgID, id influxdb.ID) error {
 		if err != nil {
 			return ErrInternalService(err)
 		}
-		return bucket.Delete(encodedID)
+		if err := bucket.Delete(encodedID); err != nil {
+			return err
+		}
+		compKey := indexForeignKey(*dbrp)
+		if err := s.byOrgAndDatabase.Delete(tx, compKey, encodedID); err != nil {
+			return err
+		}
+		return s.ensureOneDefault(ctx, tx, compKey)
 	})
 }
 

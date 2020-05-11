@@ -130,7 +130,7 @@ const (
 	// ChecksResourceType gives permission to one or more Checks.
 	ChecksResourceType = ResourceType("checks") // 16
 	// DBRPType gives permission to one or more DBRPs.
-	DBRPResourceType = ResourceType("dbrp") // 16
+	DBRPResourceType = ResourceType("dbrp") // 17
 )
 
 // AllResourceTypes is the list of all known resource types.

@@ -1,8 +1,6 @@
 package dbrp
 
 import (
-	"fmt"
-
 	"github.com/influxdata/influxdb/v2"
 )
 
@@ -33,14 +31,6 @@ var (
 	}
 )
 
-func ErrUnauthorized(err error) *influxdb.Error {
-	return &influxdb.Error{
-		Code: influxdb.EUnauthorized,
-		Msg:  "unauthorized",
-		Err:  err,
-	}
-}
-
 // ErrInvalidDBRP is used when a service was provided an invalid DBRP.
 func ErrInvalidDBRP(err error) *influxdb.Error {
 	return &influxdb.Error{
@@ -58,18 +48,13 @@ func ErrInternalService(err error) *influxdb.Error {
 	}
 }
 
-// UnexpectedDBRPIndex is used when the error comes from an internal system.
-func UnexpectedDBRPIndex(err error) *influxdb.Error {
-	return &influxdb.Error{
-		Code: influxdb.EInternal,
-		Msg:  fmt.Sprintf("unexpected error retrieving DBRP index; Err: %v", err),
-	}
-}
-
 // ErrDBRPAlreadyExists is used when there is a conflict in creating a new DBRP.
-func ErrDBRPAlreadyExists(err error) *influxdb.Error {
+func ErrDBRPAlreadyExists(msg string) *influxdb.Error {
+	if msg == "" {
+		msg = "DBRP already exists"
+	}
 	return &influxdb.Error{
 		Code: influxdb.EConflict,
-		Err:  fmt.Errorf("dbrp already exist for this particular ID. If you are trying an update use the right function .Update"),
+		Msg:  msg,
 	}
 }
