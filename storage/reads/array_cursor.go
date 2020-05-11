@@ -32,16 +32,16 @@ func newAggregateArrayCursor(ctx context.Context, agg *datatypes.Aggregate, curs
 	}
 }
 
-func newWindowAggregateArrayCursor(ctx context.Context, agg *datatypes.Aggregate, cursor cursors.Cursor) cursors.Cursor {
+func newWindowAggregateArrayCursor(ctx context.Context, req *datatypes.ReadWindowAggregateRequest, cursor cursors.Cursor) cursors.Cursor {
 	if cursor == nil {
 		return nil
 	}
 
-	switch agg.Type {
+	switch req.Aggregate[0].Type {
 	case datatypes.AggregateTypeSum:
 		return newSumArrayCursor(cursor)
 	case datatypes.AggregateTypeCount:
-		return newWindowCountArrayCursor(cursor)
+		return newWindowCountArrayCursor(cursor, req)
 	default:
 		// TODO(sgc): should be validated higher up
 		panic("invalid aggregate")
@@ -79,18 +79,22 @@ func newCountArrayCursor(cur cursors.Cursor) cursors.Cursor {
 	}
 }
 
-func newWindowCountArrayCursor(cur cursors.Cursor) cursors.Cursor {
+func newWindowCountArrayCursor(cur cursors.Cursor, req *datatypes.ReadWindowAggregateRequest) cursors.Cursor {
 	switch cur := cur.(type) {
 	case cursors.FloatArrayCursor:
-		return &integerFloatCountArrayCursor{FloatArrayCursor: cur}
+		return &integerFloatWindowCountArrayCursor{FloatArrayCursor: cur}
 	case cursors.IntegerArrayCursor:
-		return &integerIntegerCountArrayCursor{IntegerArrayCursor: cur}
+		return &integerIntegerWindowCountArrayCursor{
+			IntegerArrayCursor: cur,
+			every:              req.WindowEvery,
+			tr:                 req.Range,
+		}
 	case cursors.UnsignedArrayCursor:
-		return &integerUnsignedCountArrayCursor{UnsignedArrayCursor: cur}
+		return &integerUnsignedWindowCountArrayCursor{UnsignedArrayCursor: cur}
 	case cursors.StringArrayCursor:
-		return &integerStringCountArrayCursor{StringArrayCursor: cur}
+		return &integerStringWindowCountArrayCursor{StringArrayCursor: cur}
 	case cursors.BooleanArrayCursor:
-		return &integerBooleanCountArrayCursor{BooleanArrayCursor: cur}
+		return &integerBooleanWindowCountArrayCursor{BooleanArrayCursor: cur}
 	default:
 		panic(fmt.Sprintf("unreachable: %T", cur))
 	}

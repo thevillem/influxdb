@@ -36,16 +36,20 @@ func NewWindowAggregateResultSet(ctx context.Context, req *datatypes.ReadWindowA
 
 // TODO: remove those
 type mockIntegerArrayCursor struct {
-
+	eof bool
 }
 
-func (*mockIntegerArrayCursor) Next() *cursors.IntegerArray {
+func (m *mockIntegerArrayCursor) Next() *cursors.IntegerArray {
+	if m.eof {
+		return &cursors.IntegerArray{}
+	}
+	m.eof = true
 	return &cursors.IntegerArray{
 		Timestamps: []int64{
-			1, 2, 3, 4, 5,
+			1, 2, 3, 4, 5, 6, 7,
 		},
 		Values: []int64{
-			5, 4, 3, 2, 1,
+			7, 6, 5, 4, 3, 2, 1,
 		},
 	}
 }
@@ -64,7 +68,7 @@ func (r *windowAggregateResultSet) Next() cursors.Cursor {
 	//seriesRow := r.cursor.Next()
 	//cursor := r.arrayCursors.createCursor(seriesRow)
 	cursor := &mockIntegerArrayCursor{}
-	return newWindowAggregateArrayCursor(r.ctx, r.req.Aggregate[0], cursor)
+	return newWindowAggregateArrayCursor(r.ctx, r.req, cursor)
 }
 
 func (r *windowAggregateResultSet) Close() {

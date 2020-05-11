@@ -20,6 +20,10 @@ func TestNewReadWindowAggregateResultSet_Count(t *testing.T) {
 	request := datatypes.ReadWindowAggregateRequest{
 		WindowEvery: 2,
 		Aggregate:   aggregates,
+		Range: datatypes.TimestampRange{
+			Start: 1,
+			End:   8,
+		},
 	}
 
 	rs, err := reads.NewWindowAggregateResultSet(context.Background(), &request, seriesCursor)
