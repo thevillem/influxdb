@@ -11,6 +11,7 @@ import (
 type windowAggregateResultSet struct {
 	ctx          context.Context
 	req          *datatypes.ReadWindowAggregateRequest
+	cursor       SeriesCursor
 	i            int
 	arrayCursors *arrayCursors
 }
@@ -26,6 +27,7 @@ func NewWindowAggregateResultSet(ctx context.Context, req *datatypes.ReadWindowA
 	results := &windowAggregateResultSet{
 		ctx:          ctx,
 		req:          req,
+		cursor:       cursor,
 		i:            0,
 		arrayCursors: newArrayCursors(ctx, req.Range.Start, req.Range.End, true),
 	}
@@ -33,9 +35,10 @@ func NewWindowAggregateResultSet(ctx context.Context, req *datatypes.ReadWindowA
 }
 
 func (r *windowAggregateResultSet) Next() cursors.Cursor {
-	// TODO: implement this entirely
-	//return newAggregateArrayCursor(ctx, aggregate, cursor)
-	return nil
+	seriesRow := r.cursor.Next()
+	//cursor := r.arrayCursors.createCursor(seriesRow)
+	cursor := integerArrayCursor{}
+	return newAggregateArrayCursor(ctx, aggregate, cursor)
 }
 
 func (r *windowAggregateResultSet) Close() {
@@ -43,3 +46,7 @@ func (r *windowAggregateResultSet) Close() {
 }
 
 func (r *windowAggregateResultSet) Err() error { return nil }
+
+// TODO: implement FloatWindowAggregateCountCursor
+// TODO: implement IntegerWindowAggregateCountCursor
+// TODO: implement FloatWindowAggregateCountCursor
