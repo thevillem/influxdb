@@ -9,6 +9,7 @@
 ### Bug Fixes
 
 1. [18066](https://github.com/influxdata/influxdb/pull/18066): Fixed bug that wasn't persisting timeFormat for Graph + Single Stat selections
+1. [18071](https://github.com/influxdata/influxdb/pull/18071): Fixed issue that was causing variable selections to hydrate all variable values
 
 ### UI Improvements
 
