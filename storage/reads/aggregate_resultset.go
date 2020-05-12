@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/influxdata/influxdb/v2/kit/tracing"
+	"github.com/influxdata/influxdb/v2/models"
 	"github.com/influxdata/influxdb/v2/storage/reads/datatypes"
 	"github.com/influxdata/influxdb/v2/tsdb/cursors"
 )
@@ -12,11 +13,11 @@ type windowAggregateResultSet struct {
 	ctx          context.Context
 	req          *datatypes.ReadWindowAggregateRequest
 	cursor       SeriesCursor
-	i            int
+	seriesRow    *SeriesRow
 	arrayCursors *arrayCursors
 }
 
-func NewWindowAggregateResultSet(ctx context.Context, req *datatypes.ReadWindowAggregateRequest, cursor SeriesCursor) (ReadWindowAggregateResultSet, error) {
+func NewWindowAggregateResultSet(ctx context.Context, req *datatypes.ReadWindowAggregateRequest, cursor SeriesCursor) (ResultSet, error) {
 	span, _ := tracing.StartSpanFromContext(ctx)
 	defer span.Finish()
 
@@ -28,54 +29,41 @@ func NewWindowAggregateResultSet(ctx context.Context, req *datatypes.ReadWindowA
 		ctx:          ctx,
 		req:          req,
 		cursor:       cursor,
-		i:            0,
 		arrayCursors: newArrayCursors(ctx, req.Range.Start, req.Range.End, true),
 	}
 	return results, nil
 }
 
-// TODO: remove those
-type mockIntegerArrayCursor struct {
-	eof bool
-}
-
-func (m *mockIntegerArrayCursor) Next() *cursors.IntegerArray {
-	if m.eof {
-		return &cursors.IntegerArray{}
+func (r *windowAggregateResultSet) Next() bool {
+	if r == nil {
+		return false
 	}
-	m.eof = true
-	return &cursors.IntegerArray{
-		Timestamps: []int64{
-			1, 2, 3, 4, 5, 6, 7,
-		},
-		Values: []int64{
-			7, 6, 5, 4, 3, 2, 1,
-		},
+	r.seriesRow = r.cursor.Next()
+	if r.seriesRow == nil {
+		return false
 	}
+	return true
 }
 
-func (*mockIntegerArrayCursor) Close() {
-
-}
-func (*mockIntegerArrayCursor) Err() error {
-	return nil
-}
-func (*mockIntegerArrayCursor) Stats() cursors.CursorStats {
-	return cursors.CursorStats{}
-}
-
-func (r *windowAggregateResultSet) Next() cursors.Cursor {
-	//seriesRow := r.cursor.Next()
-	//cursor := r.arrayCursors.createCursor(seriesRow)
-	cursor := &mockIntegerArrayCursor{}
+func (r *windowAggregateResultSet) Cursor() cursors.Cursor {
+	cursor := r.arrayCursors.createCursor(*r.seriesRow)
 	return newWindowAggregateArrayCursor(r.ctx, r.req, cursor)
 }
 
-func (r *windowAggregateResultSet) Close() {
-	// TODO: implement this
-}
+func (r *windowAggregateResultSet) Close() {}
 
 func (r *windowAggregateResultSet) Err() error { return nil }
+
+func (r *windowAggregateResultSet) Stats() cursors.CursorStats {
+	if r.seriesRow.Query == nil {
+		return cursors.CursorStats{}
+	}
+	return r.seriesRow.Query.Stats()
+}
+
+func (r *windowAggregateResultSet) Tags() models.Tags {
+	return r.seriesRow.Tags
+}
 
 // TODO: implement FloatWindowAggregateCountCursor
 // TODO: implement IntegerWindowAggregateCountCursor

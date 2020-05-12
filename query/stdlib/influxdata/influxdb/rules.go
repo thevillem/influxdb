@@ -26,7 +26,7 @@ func init() {
 		SortedPivotRule{},
 		// For this rule to take effect the appropriate capabilities must be
 		// added AND feature flags must be enabled.
-		// PushDownWindowAggregateRule{},
+		PushDownWindowAggregateRule{},
 	)
 }
 
@@ -657,11 +657,11 @@ func (PushDownWindowAggregateRule) Name() string {
 func (rule PushDownWindowAggregateRule) Pattern() plan.Pattern {
 	return plan.OneOf(
 		[]plan.ProcedureKind{
-			universe.MinKind,
-			universe.MaxKind,
-			universe.MeanKind,
+			//universe.MinKind,
+			//universe.MaxKind,
+			//universe.MeanKind,
 			universe.CountKind,
-			universe.SumKind,
+			//universe.SumKind,
 		},
 		plan.Pat(universe.WindowKind, plan.Pat(ReadRangePhysKind)))
 }

@@ -159,7 +159,7 @@ func (s *store) GetWindowAggregateCapability(ctx context.Context) reads.WindowAg
 }
 
 // WindowAggregate will invoke a ReadWindowAggregateRequest against the Store.
-func (s *store) WindowAggregate(ctx context.Context, req *datatypes.ReadWindowAggregateRequest) (reads.ReadWindowAggregateResultSet, error) {
+func (s *store) WindowAggregate(ctx context.Context, req *datatypes.ReadWindowAggregateRequest) (reads.ResultSet, error) {
 	span, ctx := tracing.StartSpanFromContext(ctx)
 	defer span.Finish()
 

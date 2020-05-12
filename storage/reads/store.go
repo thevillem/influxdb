@@ -30,44 +30,6 @@ type ResultSet interface {
 	Stats() cursors.CursorStats
 }
 
-type ReadWindowAggregateResultSet interface {
-	// Next advances the ReadWindowAggregateResultSet and returns the next
-	// ReadWindowAggregateCursor. It returns nil if there are no more groups.
-	Next() cursors.Cursor
-
-	// Close releases any resources allocated by the ReadWindowAggregateResultSet.
-	Close()
-
-	// Err returns the first error encountered by the ReadWindowAggregateResultSet.
-	Err() error
-}
-
-/*
-type ReadWindowAggregateCursor interface {
-	// Next advances to the next cursor. Next will return false when there are no
-	// more cursors in the current group.
-	Next() bool
-
-	// Cursor returns the most recent cursor after a call to Next.
-	Cursor() cursors.Cursor
-
-	// Tags returns the tags for the most recent cursor after a call to Next.
-	Tags() models.Tags
-
-	// Keys returns the union of all tag key names for all series produced by
-	// this ReadWindowAggregateCursor.
-	Keys() [][]byte
-
-	// Close releases any resources allocated by the ReadWindowAggregateCursor.
-	Close()
-
-	// Err returns the first error encountered by the ReadWindowAggregateCursor.
-	Err() error
-
-	Stats() cursors.CursorStats
-}
-*/
-
 type GroupResultSet interface {
 	// Next advances the GroupResultSet and returns the next GroupCursor. It
 	// returns nil if there are no more groups.
