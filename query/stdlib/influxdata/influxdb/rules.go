@@ -712,9 +712,9 @@ func (PushDownWindowAggregateRule) Rewrite(ctx context.Context, pn plan.Node) (p
 			return pn, false, nil
 		}
 	case universe.CountKind:
-		if !feature.PushDownWindowAggregateCount().Enabled(ctx) || !caps.HaveCount() {
-			return pn, false, nil
-		}
+		//if !feature.PushDownWindowAggregateCount().Enabled(ctx) || !caps.HaveCount() {
+		//	return pn, false, nil
+		//}
 
 		countSpec := fnNode.ProcedureSpec().(*universe.CountProcedureSpec)
 		if len(countSpec.Columns) != 1 || countSpec.Columns[0] != "_value" {

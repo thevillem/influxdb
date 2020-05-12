@@ -82,7 +82,11 @@ func newCountArrayCursor(cur cursors.Cursor) cursors.Cursor {
 func newWindowCountArrayCursor(cur cursors.Cursor, req *datatypes.ReadWindowAggregateRequest) cursors.Cursor {
 	switch cur := cur.(type) {
 	case cursors.FloatArrayCursor:
-		return &integerFloatWindowCountArrayCursor{FloatArrayCursor: cur}
+		return &integerFloatWindowCountArrayCursor{
+			FloatArrayCursor: cur,
+			every:            req.WindowEvery,
+			tr:               req.Range,
+		}
 	case cursors.IntegerArrayCursor:
 		return &integerIntegerWindowCountArrayCursor{
 			IntegerArrayCursor: cur,
@@ -90,11 +94,23 @@ func newWindowCountArrayCursor(cur cursors.Cursor, req *datatypes.ReadWindowAggr
 			tr:                 req.Range,
 		}
 	case cursors.UnsignedArrayCursor:
-		return &integerUnsignedWindowCountArrayCursor{UnsignedArrayCursor: cur}
+		return &integerUnsignedWindowCountArrayCursor{
+			UnsignedArrayCursor: cur,
+			every:               req.WindowEvery,
+			tr:                  req.Range,
+		}
 	case cursors.StringArrayCursor:
-		return &integerStringWindowCountArrayCursor{StringArrayCursor: cur}
+		return &integerStringWindowCountArrayCursor{
+			StringArrayCursor: cur,
+			every:             req.WindowEvery,
+			tr:                req.Range,
+		}
 	case cursors.BooleanArrayCursor:
-		return &integerBooleanWindowCountArrayCursor{BooleanArrayCursor: cur}
+		return &integerBooleanWindowCountArrayCursor{
+			BooleanArrayCursor: cur,
+			every:              req.WindowEvery,
+			tr:                 req.Range,
+		}
 	default:
 		panic(fmt.Sprintf("unreachable: %T", cur))
 	}
