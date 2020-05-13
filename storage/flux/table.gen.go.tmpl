@@ -91,6 +91,53 @@ func (t *{{.name}}Table) advance() bool {
 	return true
 }
 
+// window table
+type {{.name}}WindowTable struct {
+	{{.name}}Table
+}
+
+func new{{.Name}}WindowTable(
+	done chan struct{},
+	cur cursors.{{.Name}}ArrayCursor,
+	bounds execute.Bounds,
+	key flux.GroupKey,
+	cols []flux.ColMeta,
+	tags models.Tags,
+	defs [][]byte,
+	cache *tagsCache,
+	alloc *memory.Allocator,
+) *{{.name}}WindowTable {
+	t := &{{.name}}WindowTable{
+		{{.name}}Table: {{.name}}Table{
+			table: newTable(done, bounds, key, cols, defs, cache, alloc),
+			cur:   cur,
+		},
+	}
+	t.readTags(tags)
+	t.advance()
+
+	return t
+}
+
+func (t *{{.name}}WindowTable) advance() bool {
+	a := t.cur.Next()
+	l := a.Len()
+	if l == 0 {
+		return false
+	}
+
+	// Retrieve the buffer for the data to avoid allocating
+	// additional slices. If the buffer is still being used
+	// because the references were retained, then we will
+	// allocate a new buffer.
+	cr := t.allocateBuffer(l)
+	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
+	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
+	t.appendTags(cr)
+	return true
+}
+
 // group table
 
 type {{.name}}GroupTable struct {

@@ -97,6 +97,53 @@ func (t *floatTable) advance() bool {
 	return true
 }
 
+// window table
+type floatWindowTable struct {
+	floatTable
+}
+
+func newFloatWindowTable(
+	done chan struct{},
+	cur cursors.FloatArrayCursor,
+	bounds execute.Bounds,
+	key flux.GroupKey,
+	cols []flux.ColMeta,
+	tags models.Tags,
+	defs [][]byte,
+	cache *tagsCache,
+	alloc *memory.Allocator,
+) *floatWindowTable {
+	t := &floatWindowTable{
+		floatTable: floatTable{
+			table: newTable(done, bounds, key, cols, defs, cache, alloc),
+			cur:   cur,
+		},
+	}
+	t.readTags(tags)
+	t.advance()
+
+	return t
+}
+
+func (t *floatWindowTable) advance() bool {
+	a := t.cur.Next()
+	l := a.Len()
+	if l == 0 {
+		return false
+	}
+
+	// Retrieve the buffer for the data to avoid allocating
+	// additional slices. If the buffer is still being used
+	// because the references were retained, then we will
+	// allocate a new buffer.
+	cr := t.allocateBuffer(l)
+	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
+	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
+	t.appendTags(cr)
+	return true
+}
+
 // group table
 
 type floatGroupTable struct {
@@ -285,6 +332,53 @@ func (t *integerTable) advance() bool {
 	cr.cols[valueColIdx] = t.toArrowBuffer(a.Values)
 	t.appendTags(cr)
 	t.appendBounds(cr)
+	return true
+}
+
+// window table
+type integerWindowTable struct {
+	integerTable
+}
+
+func newIntegerWindowTable(
+	done chan struct{},
+	cur cursors.IntegerArrayCursor,
+	bounds execute.Bounds,
+	key flux.GroupKey,
+	cols []flux.ColMeta,
+	tags models.Tags,
+	defs [][]byte,
+	cache *tagsCache,
+	alloc *memory.Allocator,
+) *integerWindowTable {
+	t := &integerWindowTable{
+		integerTable: integerTable{
+			table: newTable(done, bounds, key, cols, defs, cache, alloc),
+			cur:   cur,
+		},
+	}
+	t.readTags(tags)
+	t.advance()
+
+	return t
+}
+
+func (t *integerWindowTable) advance() bool {
+	a := t.cur.Next()
+	l := a.Len()
+	if l == 0 {
+		return false
+	}
+
+	// Retrieve the buffer for the data to avoid allocating
+	// additional slices. If the buffer is still being used
+	// because the references were retained, then we will
+	// allocate a new buffer.
+	cr := t.allocateBuffer(l)
+	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
+	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
+	t.appendTags(cr)
 	return true
 }
 
@@ -479,6 +573,53 @@ func (t *unsignedTable) advance() bool {
 	return true
 }
 
+// window table
+type unsignedWindowTable struct {
+	unsignedTable
+}
+
+func newUnsignedWindowTable(
+	done chan struct{},
+	cur cursors.UnsignedArrayCursor,
+	bounds execute.Bounds,
+	key flux.GroupKey,
+	cols []flux.ColMeta,
+	tags models.Tags,
+	defs [][]byte,
+	cache *tagsCache,
+	alloc *memory.Allocator,
+) *unsignedWindowTable {
+	t := &unsignedWindowTable{
+		unsignedTable: unsignedTable{
+			table: newTable(done, bounds, key, cols, defs, cache, alloc),
+			cur:   cur,
+		},
+	}
+	t.readTags(tags)
+	t.advance()
+
+	return t
+}
+
+func (t *unsignedWindowTable) advance() bool {
+	a := t.cur.Next()
+	l := a.Len()
+	if l == 0 {
+		return false
+	}
+
+	// Retrieve the buffer for the data to avoid allocating
+	// additional slices. If the buffer is still being used
+	// because the references were retained, then we will
+	// allocate a new buffer.
+	cr := t.allocateBuffer(l)
+	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
+	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
+	t.appendTags(cr)
+	return true
+}
+
 // group table
 
 type unsignedGroupTable struct {
@@ -670,6 +811,53 @@ func (t *stringTable) advance() bool {
 	return true
 }
 
+// window table
+type stringWindowTable struct {
+	stringTable
+}
+
+func newStringWindowTable(
+	done chan struct{},
+	cur cursors.StringArrayCursor,
+	bounds execute.Bounds,
+	key flux.GroupKey,
+	cols []flux.ColMeta,
+	tags models.Tags,
+	defs [][]byte,
+	cache *tagsCache,
+	alloc *memory.Allocator,
+) *stringWindowTable {
+	t := &stringWindowTable{
+		stringTable: stringTable{
+			table: newTable(done, bounds, key, cols, defs, cache, alloc),
+			cur:   cur,
+		},
+	}
+	t.readTags(tags)
+	t.advance()
+
+	return t
+}
+
+func (t *stringWindowTable) advance() bool {
+	a := t.cur.Next()
+	l := a.Len()
+	if l == 0 {
+		return false
+	}
+
+	// Retrieve the buffer for the data to avoid allocating
+	// additional slices. If the buffer is still being used
+	// because the references were retained, then we will
+	// allocate a new buffer.
+	cr := t.allocateBuffer(l)
+	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
+	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
+	t.appendTags(cr)
+	return true
+}
+
 // group table
 
 type stringGroupTable struct {
@@ -858,6 +1046,53 @@ func (t *booleanTable) advance() bool {
 	cr.cols[valueColIdx] = t.toArrowBuffer(a.Values)
 	t.appendTags(cr)
 	t.appendBounds(cr)
+	return true
+}
+
+// window table
+type booleanWindowTable struct {
+	booleanTable
+}
+
+func newBooleanWindowTable(
+	done chan struct{},
+	cur cursors.BooleanArrayCursor,
+	bounds execute.Bounds,
+	key flux.GroupKey,
+	cols []flux.ColMeta,
+	tags models.Tags,
+	defs [][]byte,
+	cache *tagsCache,
+	alloc *memory.Allocator,
+) *booleanWindowTable {
+	t := &booleanWindowTable{
+		booleanTable: booleanTable{
+			table: newTable(done, bounds, key, cols, defs, cache, alloc),
+			cur:   cur,
+		},
+	}
+	t.readTags(tags)
+	t.advance()
+
+	return t
+}
+
+func (t *booleanWindowTable) advance() bool {
+	a := t.cur.Next()
+	l := a.Len()
+	if l == 0 {
+		return false
+	}
+
+	// Retrieve the buffer for the data to avoid allocating
+	// additional slices. If the buffer is still being used
+	// because the references were retained, then we will
+	// allocate a new buffer.
+	cr := t.allocateBuffer(l)
+	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
+	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
+	t.appendTags(cr)
 	return true
 }
 
