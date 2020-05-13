@@ -277,6 +277,36 @@ func (i *Index) Walk(ctx context.Context, tx Tx, foreignKey []byte, visitFn Visi
 	return indexWalk(ctx, cursor, sourceBucket, visitFn)
 }
 
+// First returns the first entry in the index.
+func (i *Index) First(tx Tx, foreignKey []byte) ([]byte, error) {
+	// return not found if the index is being used purely to write.
+	if !i.canRead {
+		return nil, ErrKeyNotFound
+	}
+
+	sourceBucket, err := i.sourceBucket(tx)
+	if err != nil {
+		return nil, err
+	}
+	indexBucket, err := i.indexBucket(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := indexBucket.ForwardCursor(foreignKey, WithCursorPrefix(foreignKey))
+	if err != nil {
+		return nil, err
+	}
+	_, k := c.Next()
+	if err := c.Err(); err != nil {
+		return nil, err
+	}
+	if err := c.Close(); err != nil {
+		return nil, err
+	}
+	return sourceBucket.Get(k)
+}
+
 // PopulateConfig configures a call to Populate
 type PopulateConfig struct {
 	RemoveDanglingForeignKeys bool

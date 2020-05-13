@@ -332,8 +332,8 @@ func CreateDBRPMappingV2(
 			if err != nil {
 				t.Fatalf("failed to retrieve dbrps: %v", err)
 			}
-			if diff := cmp.Diff(dbrpMappings, tt.wants.dbrpMappings, DBRPMappingCmpOptionsV2...); diff != "" {
-				t.Errorf("dbrpMappings are different -got/+want\ndiff %s", diff)
+			if diff := cmp.Diff(tt.wants.dbrpMappings, dbrpMappings, DBRPMappingCmpOptionsV2...); diff != "" {
+				t.Errorf("dbrpMappings are different -want/+got\ndiff %s", diff)
 			}
 		})
 	}
@@ -1059,6 +1059,59 @@ func UpdateDBRPMappingV2(
 					OrganizationID:  MustIDBase16(dbrpOrg1ID),
 					BucketID:        MustIDBase16(dbrpBucket1ID),
 				}},
+			},
+		},
+		{
+			name: "update to same orgID, db, and rp",
+			fields: DBRPMappingFieldsV2{
+				DBRPMappingsV2: []*influxdb.DBRPMappingV2{
+					{
+						ID:              100,
+						Database:        "database1",
+						RetentionPolicy: "retention_policy1",
+						Default:         false,
+						OrganizationID:  MustIDBase16(dbrpOrg1ID),
+						BucketID:        MustIDBase16(dbrpBucket1ID),
+					},
+					{
+						ID:              200,
+						Database:        "database1",
+						RetentionPolicy: "retention_policy2",
+						Default:         true,
+						OrganizationID:  MustIDBase16(dbrpOrg1ID),
+						BucketID:        MustIDBase16(dbrpBucket1ID),
+					},
+				},
+			},
+			args: args{
+				dbrpMapping: &influxdb.DBRPMappingV2{
+					ID:              200,
+					Database:        "database1",
+					RetentionPolicy: "retention_policy1",
+					Default:         true,
+					OrganizationID:  MustIDBase16(dbrpOrg1ID),
+					BucketID:        MustIDBase16(dbrpBucket1ID),
+				},
+			},
+			wants: wants{
+				err: dbrp.ErrDBRPAlreadyExists("another DBRP mapping with same orgID, db, and rp exists"),
+				dbrpMappings: []*influxdb.DBRPMappingV2{{
+					ID:              100,
+					Database:        "database1",
+					RetentionPolicy: "retention_policy1",
+					Default:         false,
+					OrganizationID:  MustIDBase16(dbrpOrg1ID),
+					BucketID:        MustIDBase16(dbrpBucket1ID),
+				},
+					{
+						ID:              200,
+						Database:        "database1",
+						RetentionPolicy: "retention_policy2",
+						Default:         true,
+						OrganizationID:  MustIDBase16(dbrpOrg1ID),
+						BucketID:        MustIDBase16(dbrpBucket1ID),
+					},
+				},
 			},
 		},
 		{

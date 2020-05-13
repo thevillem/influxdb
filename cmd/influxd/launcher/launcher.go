@@ -768,7 +768,7 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 		return err
 	}
 
-	dbrpSvc = dbrp.AuthorizedService{DBRPMappingServiceV2: dbrpSvc}
+	dbrpSvc = dbrp.NewAuthorizedService(dbrpSvc)
 
 	var checkSvc platform.CheckService
 	{

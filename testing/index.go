@@ -58,6 +58,20 @@ func (s *someResourceStore) FindByOwner(ctx context.Context, ownerID string) (re
 	return
 }
 
+func (s *someResourceStore) FindFirstByOwner(ctx context.Context, ownerID string) (resource someResource, err error) {
+	err = s.store.View(ctx, func(tx kv.Tx) error {
+		bs, err := s.ownerIDIndex.First(tx, []byte(ownerID))
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(bs, &resource); err != nil {
+			return err
+		}
+		return nil
+	})
+	return resource, err
+}
+
 func (s *someResourceStore) Create(ctx context.Context, resource someResource, index bool) error {
 	return s.store.Update(ctx, func(tx kv.Tx) error {
 		bkt, err := tx.Bucket(mapping.SourceBucket())
@@ -340,6 +354,14 @@ func testWalk(t *testing.T, store kv.Store) {
 		if len(found) > 0 {
 			t.Fatalf("expected %#v to be empty", found)
 		}
+
+		first, err := resourceStore.FindFirstByOwner(ctx, testCase.owner)
+		if err == nil {
+			t.Fatalf("expected not to found first, got %#v", first)
+		}
+		if !kv.IsNotFound(err) {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	}
 
 	// configure index read path enabled
@@ -352,6 +374,15 @@ func testWalk(t *testing.T, store kv.Store) {
 		}
 
 		if !reflect.DeepEqual(found, testCase.resources) {
+			t.Errorf("expected %#v, found %#v", testCase.resources, found)
+		}
+
+		first, err := resourceStore.FindFirstByOwner(ctx, testCase.owner)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(first, testCase.resources[0]) {
 			t.Errorf("expected %#v, found %#v", testCase.resources, found)
 		}
 	}
