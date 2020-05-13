@@ -137,8 +137,14 @@ func (t *floatWindowTable) advance() bool {
 	// because the references were retained, then we will
 	// allocate a new buffer.
 	cr := t.allocateBuffer(l)
-	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
-	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	// regain the window start time from the window end time
+	startTimes := make([]int64, len(a.Timestamps))
+	startTimes[0] = int64(t.bounds.Start)
+	for i := 1; i < len(a.Timestamps); i++ {
+		startTimes[i] = a.Timestamps[i-1]
+	}
+	cr.cols[startColIdx] = arrow.NewInt(startTimes, t.alloc)
+	cr.cols[stopColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
 	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
 	t.appendTags(cr)
 	return true
@@ -375,8 +381,14 @@ func (t *integerWindowTable) advance() bool {
 	// because the references were retained, then we will
 	// allocate a new buffer.
 	cr := t.allocateBuffer(l)
-	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
-	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	// regain the window start time from the window end time
+	startTimes := make([]int64, len(a.Timestamps))
+	startTimes[0] = int64(t.bounds.Start)
+	for i := 1; i < len(a.Timestamps); i++ {
+		startTimes[i] = a.Timestamps[i-1]
+	}
+	cr.cols[startColIdx] = arrow.NewInt(startTimes, t.alloc)
+	cr.cols[stopColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
 	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
 	t.appendTags(cr)
 	return true
@@ -613,8 +625,14 @@ func (t *unsignedWindowTable) advance() bool {
 	// because the references were retained, then we will
 	// allocate a new buffer.
 	cr := t.allocateBuffer(l)
-	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
-	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	// regain the window start time from the window end time
+	startTimes := make([]int64, len(a.Timestamps))
+	startTimes[0] = int64(t.bounds.Start)
+	for i := 1; i < len(a.Timestamps); i++ {
+		startTimes[i] = a.Timestamps[i-1]
+	}
+	cr.cols[startColIdx] = arrow.NewInt(startTimes, t.alloc)
+	cr.cols[stopColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
 	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
 	t.appendTags(cr)
 	return true
@@ -851,8 +869,14 @@ func (t *stringWindowTable) advance() bool {
 	// because the references were retained, then we will
 	// allocate a new buffer.
 	cr := t.allocateBuffer(l)
-	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
-	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	// regain the window start time from the window end time
+	startTimes := make([]int64, len(a.Timestamps))
+	startTimes[0] = int64(t.bounds.Start)
+	for i := 1; i < len(a.Timestamps); i++ {
+		startTimes[i] = a.Timestamps[i-1]
+	}
+	cr.cols[startColIdx] = arrow.NewInt(startTimes, t.alloc)
+	cr.cols[stopColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
 	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
 	t.appendTags(cr)
 	return true
@@ -1089,8 +1113,14 @@ func (t *booleanWindowTable) advance() bool {
 	// because the references were retained, then we will
 	// allocate a new buffer.
 	cr := t.allocateBuffer(l)
-	cr.cols[startColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
-	cr.cols[stopColIdx] = cr.cols[startColIdx]
+	// regain the window start time from the window end time
+	startTimes := make([]int64, len(a.Timestamps))
+	startTimes[0] = int64(t.bounds.Start)
+	for i := 1; i < len(a.Timestamps); i++ {
+		startTimes[i] = a.Timestamps[i-1]
+	}
+	cr.cols[startColIdx] = arrow.NewInt(startTimes, t.alloc)
+	cr.cols[stopColIdx] = arrow.NewInt(a.Timestamps, t.alloc)
 	cr.cols[windowedValueColIdx] = t.toArrowBuffer(a.Values)
 	t.appendTags(cr)
 	return true
