@@ -39,10 +39,7 @@ func (r *windowAggregateResultSet) Next() bool {
 		return false
 	}
 	r.seriesRow = r.cursor.Next()
-	if r.seriesRow == nil {
-		return false
-	}
-	return true
+	return r.seriesRow != nil
 }
 
 func (r *windowAggregateResultSet) Cursor() cursors.Cursor {
