@@ -395,11 +395,11 @@ func convertGroupMode(m query.GroupMode) datatypes.ReadGroupRequest_Group {
 }
 
 const (
-	startColIdx = 0
-	stopColIdx  = 1
-	timeColIdx  = 2
+	startColIdx         = 0
+	stopColIdx          = 1
+	timeColIdx          = 2
 	windowedValueColIdx = 2
-	valueColIdx = 3
+	valueColIdx         = 3
 )
 
 func determineTableColsForWindowAggregate(tags models.Tags, typ flux.ColType) ([]flux.ColMeta, [][]byte) {
