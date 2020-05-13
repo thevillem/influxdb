@@ -1207,7 +1207,7 @@ func TestPushDownWindowAggregateRule(t *testing.T) {
 
 	tests := make([]plantest.RuleTestCase, 0)
 
-	// construct a simple plan with a specific window
+	// construct a simple plan with a specific window and aggregate function
 	simplePlanWithWindowAgg := func( window universe.WindowProcedureSpec, agg plan.NodeID, spec plan.ProcedureSpec ) *plantest.PlanSpec {
 		return &plantest.PlanSpec{
 			Nodes: []plan.Node{
@@ -1557,6 +1557,302 @@ func TestPushDownWindowAggregateRule(t *testing.T) {
 		Rules: []plan.Rule{ influxdb.PushDownWindowAggregateRule{}},
 		Before: simplePlanWithWindowAgg( window1m, "count", countProcedureSpec() ),
 		After: simpleResult( "count" ),
+		NoChange: true,
+	})
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			plantest.PhysicalRuleTestHelper(t, &tc)
+		})
+	}
+}
+
+//
+// Group Aggregate Testing
+//
+func TestPushDownGroupAggregateRule(t *testing.T) {
+	// Turn on all flags
+	flagger := mock.NewFlagger(map[feature.Flag] interface{}{
+		feature.PushDownGroupAggregateSum(): true,
+		feature.PushDownGroupAggregateCount(): true,
+	})
+
+	ctx, _ := feature.Annotate(context.Background(), flagger)
+
+	readGroupAgg := func(aggregateMethod string) *influxdb.ReadGroupPhysSpec{
+		return &influxdb.ReadGroupPhysSpec{
+			ReadRangePhysSpec: influxdb.ReadRangePhysSpec {
+				Bucket: "my-bucket",
+				Bounds: flux.Bounds{
+					Start: fluxTime(5),
+					Stop:  fluxTime(10),
+				},
+			},
+			GroupMode: flux.GroupModeBy,
+			GroupKeys: []string{"_measurement", "tag0", "tag1"},
+			AggregateMethod: aggregateMethod,
+		}
+	}
+	readGroup := func() *influxdb.ReadGroupPhysSpec {
+		return readGroupAgg("")
+	}
+
+	tests := make([]plantest.RuleTestCase, 0)
+
+	// construct a simple plan with a specific aggregate
+	simplePlanWithAgg := func( agg plan.NodeID, spec plan.ProcedureSpec ) *plantest.PlanSpec {
+		return &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreateLogicalNode("ReadGroup", readGroup()),
+				plan.CreateLogicalNode(agg, spec),
+			},
+			Edges: [][2]int{
+				{0, 1},
+			},
+		}
+	}
+
+	// construct a simple result
+	simpleResult := func( proc string ) *plantest.PlanSpec {
+		return &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreatePhysicalNode("ReadGroupAggregate", readGroupAgg(proc) ),
+			},
+		}
+	}
+
+	minProcedureSpec := func() *universe.MinProcedureSpec {
+		return &universe.MinProcedureSpec{
+			SelectorConfig: execute.SelectorConfig{Column: "_value"},
+		}
+	}
+	maxProcedureSpec := func() *universe.MaxProcedureSpec {
+		return &universe.MaxProcedureSpec{
+			SelectorConfig: execute.SelectorConfig{Column: "_value"},
+		}
+	}
+	meanProcedureSpec := func() *universe.MeanProcedureSpec {
+		return &universe.MeanProcedureSpec{
+			AggregateConfig: execute.AggregateConfig{Columns: []string{"_value"}},
+		}
+	}
+	countProcedureSpec := func() *universe.CountProcedureSpec {
+		return &universe.CountProcedureSpec{
+			AggregateConfig: execute.AggregateConfig{Columns: []string{"_value"}},
+		}
+	}
+	sumProcedureSpec := func() *universe.SumProcedureSpec {
+		return &universe.SumProcedureSpec{
+			AggregateConfig: execute.AggregateConfig{Columns: []string{"_value"}},
+		}
+	}
+
+	// ReadGroup -> window -> min => ReadWindowAggregate
+	tests = append(tests, plantest.RuleTestCase{
+		Context: ctx,
+		Name: "SimplePassMin",
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "min", minProcedureSpec() ),
+		//After: simpleResult( "MIN" ),
+		NoChange: true,
+	})
+
+	// ReadGroup -> max => ReadGroupAggregate
+	tests = append(tests, plantest.RuleTestCase{
+		Context: ctx,
+		Name: "SimplePassMax",
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "max", maxProcedureSpec() ),
+		//After: simpleResult( "MAX" ),
+		NoChange: true,
+	})
+
+	// ReadGroup -> mean => ReadGroupAggregate
+	tests = append(tests, plantest.RuleTestCase{
+		Context: ctx,
+		Name: "SimplePassMean",
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "mean", meanProcedureSpec() ),
+		NoChange: true,
+	})
+
+	// ReadGroup -> count => ReadGroupAggregate
+	tests = append(tests, plantest.RuleTestCase{
+		Context: ctx,
+		Name: "SimplePassCount",
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "count", countProcedureSpec() ),
+		After: simpleResult( "COUNT" ),
+	})
+
+	// ReadGroup -> sum => ReadGroupAggregate
+	tests = append(tests, plantest.RuleTestCase{
+		Context: ctx,
+		Name: "SimplePassSum",
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "sum", sumProcedureSpec() ),
+		After: simpleResult( "SUM" ),
+	})
+
+	// Rewrite with successors
+	// ReadGroup -> sum -> count {2} => ReadGroupAggregate -> count {2}
+	tests = append(tests, plantest.RuleTestCase{
+		Context: ctx,
+		Name: "WithSuccessor",
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreateLogicalNode("ReadGroup", readGroup()),
+				plan.CreateLogicalNode("sum", sumProcedureSpec() ),
+				plan.CreateLogicalNode("count", countProcedureSpec() ),
+				plan.CreateLogicalNode("count", countProcedureSpec() ),
+			},
+			Edges: [][2]int{
+				{0, 1},
+				{1, 2},
+				{1, 3},
+			},
+		},
+		After: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreatePhysicalNode("ReadGroupAggregate", readGroupAgg("SUM") ),
+				plan.CreateLogicalNode("count", countProcedureSpec() ),
+				plan.CreateLogicalNode("count", countProcedureSpec() ),
+			},
+			Edges: [][2]int{
+				{0, 1},
+				{0, 2},
+			},
+		},
+	})
+
+	// Cannot replace a ReadGroup that already has an aggregate. This exercises
+	// the check that ReadGroup aggregate is not set.
+	// ReadGroup -> sum -> sum => ReadGroupAggregate -> sum
+	tests = append(tests, plantest.RuleTestCase{
+		Context: ctx,
+		Name: "WithSuccessor",
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreateLogicalNode("ReadGroup", readGroup()),
+				plan.CreateLogicalNode("sum", sumProcedureSpec() ),
+				plan.CreateLogicalNode("sum", sumProcedureSpec() ),
+			},
+			Edges: [][2]int{
+				{0, 1},
+				{1, 2},
+			},
+		},
+		After: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreatePhysicalNode("ReadGroupAggregate", readGroupAgg("SUM") ),
+				plan.CreateLogicalNode("sum", sumProcedureSpec() ),
+			},
+			Edges: [][2]int{
+				{0, 1},
+			},
+		},
+	})
+
+	// Bad min column
+	// ReadGroup -> min => NO-CHANGE
+	tests = append(tests, plantest.RuleTestCase{
+		Name: "BadMinCol",
+		Context: ctx,
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "min", &universe.MinProcedureSpec{
+			SelectorConfig: execute.SelectorConfig{Column:"_valmoo"},
+		}),
+		NoChange: true,
+	})
+
+	// Bad max column
+	// ReadGroup -> max => NO-CHANGE
+	tests = append(tests, plantest.RuleTestCase{
+		Name: "BadMaxCol",
+		Context: ctx,
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "max",  &universe.MaxProcedureSpec{
+			SelectorConfig: execute.SelectorConfig{Column:"_valmoo"},
+		}),
+		NoChange: true,
+	})
+
+	// Bad mean columns
+	// ReadGroup -> mean => NO-CHANGE
+	tests = append(tests, plantest.RuleTestCase{
+		Name: "BadMeanCol1",
+		Context: ctx,
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "mean", &universe.MeanProcedureSpec{
+			AggregateConfig: execute.AggregateConfig{Columns:[]string{"_valmoo"}},
+		}),
+		NoChange: true,
+	})
+	tests = append(tests, plantest.RuleTestCase{
+		Name: "BadMeanCol2",
+		Context: ctx,
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: simplePlanWithAgg( "mean", &universe.MeanProcedureSpec{
+			AggregateConfig: execute.AggregateConfig{Columns:[]string{"_value", "_valmoo"}},
+		}),
+		NoChange: true,
+	})
+
+	// No match due to a collapsed node having a successor
+	// ReadGroup -> min 
+	//          \-> min
+	tests = append(tests, plantest.RuleTestCase{
+		Name: "CollapsedWithSuccessor",
+		Context: ctx,
+		Rules: []plan.Rule{ influxdb.PushDownGroupAggregateRule{}},
+		Before: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreateLogicalNode("ReadGroup", readGroup()),
+				plan.CreateLogicalNode("min", minProcedureSpec() ),
+				plan.CreateLogicalNode("min", minProcedureSpec() ),
+			},
+			Edges: [][2]int{
+				{0, 1},
+				{0, 2},
+			},
+		},
+		NoChange: true,
+	})
+
+	// No pattern match
+	// ReadGroup -> filter -> min -> NO-CHANGE
+	pushableFn1 := executetest.FunctionExpression(t, `(r) => true`)
+
+	makeResolvedFilterFn := func(expr *semantic.FunctionExpression) interpreter.ResolvedFunction {
+		return interpreter.ResolvedFunction{
+			Scope: nil,
+			Fn:    expr,
+		}
+	}
+	noPatternMatch1 := func() *plantest.PlanSpec{
+		return &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreateLogicalNode("ReadGroup", readGroup()),
+				plan.CreatePhysicalNode("filter", &universe.FilterProcedureSpec{
+					Fn: makeResolvedFilterFn(pushableFn1),
+				}),
+				plan.CreateLogicalNode("min", minProcedureSpec() ),
+			},
+			Edges: [][2]int{
+				{0, 1},
+				{1, 2},
+			},
+		}
+	}
+	tests = append(tests, plantest.RuleTestCase{
+		Name: "NoPatternMatch",
+		Context: ctx,
+		Rules: []plan.Rule{ influxdb.PushDownWindowAggregateRule{}},
+		Before: noPatternMatch1(),
 		NoChange: true,
 	})
 

@@ -45,3 +45,16 @@
   default: false
   contact: Alirie Gray
   lifetime: temporary
+
+- name: Push Down Group Aggregate Count
+  description: Enable the count variant of PushDownWindowAggregate planner rule
+  key: pushDownGroupAggregateCount
+  default: false
+  contact: Query Team
+
+- name: Push Down Group Aggregate Sum
+  description: Enable the sum variant of PushDownWindowAggregate planner rule
+  key: pushDownGroupAggregateSum
+  default: false
+  contact: Query Team
+

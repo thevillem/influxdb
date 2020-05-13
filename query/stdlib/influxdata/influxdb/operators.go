@@ -16,6 +16,7 @@ const (
 	ReadRangePhysKind           = "ReadRangePhysKind"
 	ReadGroupPhysKind           = "ReadGroupPhysKind"
 	ReadWindowAggregatePhysKind = "ReadWindowAggregatePhysKind"
+	ReadGroupAggregatePhysKind  = "ReadGroupAggregatePhysKind"
 	ReadTagKeysPhysKind         = "ReadTagKeysPhysKind"
 	ReadTagValuesPhysKind       = "ReadTagValuesPhysKind"
 )

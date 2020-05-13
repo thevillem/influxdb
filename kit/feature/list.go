@@ -72,12 +72,42 @@ func NewAuthPackage() BoolFlag {
 	return newAuth
 }
 
+var pushDownGroupAggregateCount = MakeBoolFlag(
+	"Push Down Group Aggregate Count",
+	"pushDownGroupAggregateCount",
+	"Query Team",
+	false,
+	Temporary,
+	false,
+)
+
+// PushDownGroupAggregateCount - Enable the count variant of PushDownWindowAggregate planner rule
+func PushDownGroupAggregateCount() BoolFlag {
+	return pushDownGroupAggregateCount
+}
+
+var pushDownGroupAggregateSum = MakeBoolFlag(
+	"Push Down Group Aggregate Sum",
+	"pushDownGroupAggregateSum",
+	"Query Team",
+	false,
+	Temporary,
+	false,
+)
+
+// PushDownGroupAggregateSum - Enable the sum variant of PushDownWindowAggregate planner rule
+func PushDownGroupAggregateSum() BoolFlag {
+	return pushDownGroupAggregateSum
+}
+
 var all = []Flag{
 	backendExample,
 	frontendExample,
 	pushDownWindowAggregateCount,
 	pushDownWindowAggregateRest,
 	newAuth,
+	pushDownGroupAggregateCount,
+	pushDownGroupAggregateSum,
 }
 
 var byKey = map[string]Flag{
@@ -86,4 +116,6 @@ var byKey = map[string]Flag{
 	"pushDownWindowAggregateCount": pushDownWindowAggregateCount,
 	"pushDownWindowAggregateRest":  pushDownWindowAggregateRest,
 	"newAuth":                      newAuth,
+	"pushDownGroupAggregateCount":  pushDownGroupAggregateCount,
+	"pushDownGroupAggregateSum":    pushDownGroupAggregateSum,
 }
